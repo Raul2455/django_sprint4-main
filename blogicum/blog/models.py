@@ -10,6 +10,7 @@ class PublishedModel(models.Model):
     Абстрактная модель.
     Добвляет для публикаций флаг и дату создания.
     """
+
     is_published = models.BooleanField(
         default=True,
         verbose_name='Опубликовано',
@@ -26,6 +27,7 @@ class PublishedModel(models.Model):
 
 class Location(PublishedModel):
     """Модель локации для публикаций."""
+
     name = models.CharField(
         max_length=256,
         verbose_name='Название места',
@@ -41,6 +43,7 @@ class Location(PublishedModel):
 
 class Category(PublishedModel):
     """Модель категории для публикаций."""
+
     title = models.CharField(
         max_length=256,
         verbose_name='Заголовок',
@@ -67,6 +70,7 @@ class Category(PublishedModel):
 
 class Post(PublishedModel):
     """Модель публикации."""
+
     title = models.CharField(
         max_length=256,
         verbose_name='Заголовок',
@@ -127,6 +131,7 @@ class Post(PublishedModel):
 
 class Comment(PublishedModel):
     """Модель комментария для публикации."""
+
     text = models.TextField(
         verbose_name='Текст комментария',
     )
