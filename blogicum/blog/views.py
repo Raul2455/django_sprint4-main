@@ -20,7 +20,6 @@ PAGINATE_COUNT: int = 10
 
 def get_general_posts_filter() -> QuerySet[Any]:
     """Фильтр для постов со счётчиком комментариев и сортировкой."""
-
     return Post.objects.select_related(
         'author',
         'location',
