@@ -20,6 +20,7 @@ PAGINATE_COUNT: int = 10
 
 def get_general_posts_filter() -> QuerySet[Any]:
     """Фильтр для постов со счётчиком комментариев и сортировкой."""
+
     return Post.objects.select_related(
         'author',
         'location',
@@ -81,31 +82,37 @@ class RedirectionProfileMixin:
 
 class PostMixin:
     """Базовый миксин для постов."""
+
     model = Post
 
 
 class PostFormMixin(PostMixin):
     """Миксин для постов с формой."""
+
     form_class = PostForm
 
 
 class PostListMixin(PostMixin):
     """Миксин для страниц со списком постов и пагинацией."""
+
     paginate_by = PAGINATE_COUNT
 
 
 class PostCreateMixin:
     """Базовый миксин для создания и изменения постов."""
+
     template_name = 'blog/create.html'
 
 
 class PostIdCreateMixin(PostCreateMixin):
     """Расширенный миксин для создания и изменения постов."""
+
     pk_url_kwarg = 'post_id'
 
 
 class PostListView(PostListMixin, ListView):
     """CBV главной страницы. Выводит список постов."""
+
     template_name = 'blog/index.html'
 
     def get_queryset(self) -> QuerySet[Any]:
@@ -114,6 +121,7 @@ class PostListView(PostListMixin, ListView):
 
 class PostDetailView(PostMixin, DetailView):
     """CBV подробная страница поста с комментариями к нему."""
+
     template_name = 'blog/detail.html'
     pk_url_kwarg = 'post_id'
 
@@ -145,6 +153,7 @@ class PostDetailView(PostMixin, DetailView):
 
 class CategoryListView(PostListMixin, ListView):
     """CBV страница категории. Выводит список постов."""
+
     template_name = 'blog/category.html'
 
     def get_queryset(self) -> QuerySet[Any]:
@@ -171,6 +180,7 @@ class PostCreateView(
     CreateView,
 ):
     """CBV страница создания поста."""
+
     pass
 
 
@@ -183,6 +193,7 @@ class PostUpdateView(
     UpdateView,
 ):
     """CBV страница редактирования поста."""
+
     pass
 
 
@@ -203,6 +214,7 @@ class PostDeleteView(
 
 class ProfilePostListView(PostListMixin, ListView):
     """CBV страницы пользователя."""
+
     template_name = 'blog/profile.html'
 
     def get_queryset(self) -> QuerySet[Any]:
@@ -232,6 +244,7 @@ class EditProfileUpdateView(
     UpdateView,
 ):
     """CBV страница редактирования профиля."""
+
     model = User
     template_name = 'blog/user.html'
     fields = (
@@ -247,6 +260,7 @@ class EditProfileUpdateView(
 
 class CommentMixin(RedirectionPostMixin):
     """Миксин для комментариев."""
+
     model = Comment
     template_name = 'blog/comment.html'
     pk_url_kwarg = 'comment_id'
@@ -254,6 +268,7 @@ class CommentMixin(RedirectionPostMixin):
 
 class CommentFormMixin(CommentMixin):
     """Миксин для комментариев с формой."""
+
     form_class = CommentForm
 
 
@@ -271,9 +286,11 @@ class CommentCreateView(LoginRequiredMixin, CommentFormMixin, CreateView):
 
 class CommentUpdateView(EditContentMixin, CommentFormMixin, UpdateView):
     """CBV страница редактирования комментария."""
+
     pass
 
 
 class CommentDeleteView(EditContentMixin, CommentMixin, DeleteView):
     """CBV страница удаления комментария."""
+
     pass
