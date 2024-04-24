@@ -1,295 +1,231 @@
-from typing import Any, Dict
-
+from django.conf import settings
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Count
-from django.db.models.query import QuerySet
 from django.http import Http404
-from django.http.response import HttpResponse
 from django.shortcuts import get_object_or_404, redirect
-from django.urls import reverse
+from django.urls import reverse_lazy
 from django.utils import timezone
-from django.views.generic import (
-    CreateView, DeleteView, DetailView, ListView, UpdateView
-)
+from django.views.generic import (CreateView, DeleteView, DetailView, ListView,
+                                  UpdateView)
 
-from .forms import CommentForm, PostForm
-from .models import Category, Comment, Post, User
-
-PAGINATE_COUNT: int = 10
+from blog.forms import CommentEditForm, PostEditForm, UserEditForm
+from blog.models import Category, Comment, Post, User
 
 
-def get_general_posts_filter() -> QuerySet[Any]:
-    """Фильтр для постов со счётчиком комментариев и сортировкой."""
-    return Post.objects.select_related(
+def create_queryset(manager=Post.objects, filters=True, annotations=True):
+    queryset = manager.select_related(
         'author',
         'location',
-        'category',
-    ).filter(
-        pub_date__lte=timezone.now(),
-        is_published=True,
-        category__is_published=True,
-    ).annotate(
-        comment_count=Count('comments')
-    ).order_by('-pub_date')
-
-
-class EditContentMixin(LoginRequiredMixin):
-    """
-    Добавляет проверку авторства для редактирования и удаления.
-    Если проверка провалена, то возвращает на страницу поста.
-    """
-
-    def dispatch(self, request, *args, **kwargs) -> HttpResponse:
-        if self.get_object().author != request.user:
-            return redirect(
-                'blog:post_detail',
-                post_id=self.kwargs['post_id']
-            )
-        return super().dispatch(request, *args, **kwargs)
-
-
-class ValidationMixin:
-    """
-    Валидидатор формы.
-    Устанавливает пользователя в качестве автора.
-    """
-
-    def form_valid(self, form):
-        form.instance.author = self.request.user
-        return super().form_valid(form)
-
-
-class RedirectionPostMixin:
-    """После выполнения перенаправит на страницу поста."""
-
-    def get_success_url(self):
-        return reverse(
-            'blog:post_detail',
-            kwargs={'post_id': self.kwargs['post_id']}
-        )
-
-
-class RedirectionProfileMixin:
-    """После выполнения перенаправит на страницу профиля."""
-
-    def get_success_url(self):
-        return reverse(
-            'blog:profile',
-            kwargs={'username': self.request.user}
-        )
-
-
-class PostMixin:
-    """Базовый миксин для постов."""
-
-    model = Post
-
-
-class PostFormMixin(PostMixin):
-    """Миксин для постов с формой."""
-
-    form_class = PostForm
-
-
-class PostListMixin(PostMixin):
-    """Миксин для страниц со списком постов и пагинацией."""
-
-    paginate_by = PAGINATE_COUNT
-
-
-class PostCreateMixin:
-    """Базовый миксин для создания и изменения постов."""
-
-    template_name = 'blog/create.html'
-
-
-class PostIdCreateMixin(PostCreateMixin):
-    """Расширенный миксин для создания и изменения постов."""
-
-    pk_url_kwarg = 'post_id'
-
-
-class PostListView(PostListMixin, ListView):
-    """CBV главной страницы. Выводит список постов."""
-
-    template_name = 'blog/index.html'
-
-    def get_queryset(self) -> QuerySet[Any]:
-        return get_general_posts_filter()
-
-
-class PostDetailView(PostMixin, DetailView):
-    """CBV подробная страница поста с комментариями к нему."""
-
-    template_name = 'blog/detail.html'
-    pk_url_kwarg = 'post_id'
-
-    def get_queryset(self) -> QuerySet[Any]:
-        return super().get_queryset().select_related(
-            'author',
-            'location',
-            'category',
-        )
-
-    def get_object(self, queryset=None):
-        post = super().get_object(queryset)
-        if post.author != self.request.user and (
-            post.is_published is False
-            or post.category.is_published is False
-            or post.pub_date > timezone.now()
-        ):
-            raise Http404
-        return post
-
-    def get_context_data(self, **kwargs) -> Dict[str, Any]:
-        context = super().get_context_data(**kwargs)
-        context['form'] = CommentForm()
-        context['comments'] = self.object.comments.select_related(
-            'author'
-        )
-        return context
-
-
-class CategoryListView(PostListMixin, ListView):
-    """CBV страница категории. Выводит список постов."""
-
-    template_name = 'blog/category.html'
-
-    def get_queryset(self) -> QuerySet[Any]:
-        return get_general_posts_filter().filter(
-            category__slug=self.kwargs['category_slug'],
-        )
-
-    def get_context_data(self, **kwargs) -> Dict[str, Any]:
-        context = super().get_context_data(**kwargs)
-        context['category'] = get_object_or_404(
-            Category,
+        'category'
+    )
+    if filters:
+        queryset = queryset.filter(
+            pub_date__lt=timezone.now(),
             is_published=True,
-            slug=self.kwargs['category_slug'],
+            category__is_published=True,
         )
-        return context
-
-
-class PostCreateView(
-    LoginRequiredMixin,
-    PostFormMixin,
-    PostCreateMixin,
-    ValidationMixin,
-    RedirectionProfileMixin,
-    CreateView,
-):
-    """CBV страница создания поста."""
-
-    pass
-
-
-class PostUpdateView(
-    EditContentMixin,
-    PostFormMixin,
-    PostIdCreateMixin,
-    ValidationMixin,
-    RedirectionPostMixin,
-    UpdateView,
-):
-    """CBV страница редактирования поста."""
-
-    pass
-
-
-class PostDeleteView(
-    EditContentMixin,
-    PostMixin,
-    PostIdCreateMixin,
-    RedirectionProfileMixin,
-    DeleteView,
-):
-    """CBV страница удаления поста."""
-
-    def get_context_data(self, **kwargs) -> Dict[str, Any]:
-        context = super().get_context_data(**kwargs)
-        context['form'] = PostForm(instance=self.object)
-        return context
-
-
-class ProfilePostListView(PostListMixin, ListView):
-    """CBV страницы пользователя."""
-
-    template_name = 'blog/profile.html'
-
-    def get_queryset(self) -> QuerySet[Any]:
-        self.author = get_object_or_404(
-            User,
-            username=self.kwargs['username']
-        )
-        return Post.objects.select_related(
-            'author',
-            'location',
-            'category',
-        ).filter(
-            author=self.author
-        ).annotate(
+    if annotations:
+        queryset = queryset.annotate(
             comment_count=Count('comments')
         ).order_by('-pub_date')
+    return queryset
 
-    def get_context_data(self, **kwargs) -> Dict[str, Any]:
+
+class IndexListView(ListView):
+    queryset = create_queryset()
+    template_name = 'blog/index.html'
+    ordering = '-pub_date'
+    paginate_by = settings.MAX_POST_ON_PAGE
+
+
+class CategoryListView(IndexListView):
+    template_name = 'blog/category.html'
+
+    def get_queryset(self):
+        category_slug = self.kwargs.get('category_slug')
+        self.category = get_object_or_404(
+            Category,
+            slug=category_slug,
+            is_published=True
+        )
+        return create_queryset(manager=self.category.posts)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['category'] = self.category
+
+        return context
+
+
+class ProfileListView(IndexListView, ListView):
+    template_name = 'blog/profile.html'
+
+    def get_queryset(self):
+        self.author = get_object_or_404(
+            User,
+            username=self.kwargs.get('username')
+        )
+        if self.request.user != self.author:
+            queryset = create_queryset(
+                manager=self.author.posts,
+                filters=True,
+                annotations=True
+            )
+        else:
+            queryset = create_queryset(
+                manager=self.author.posts,
+                filters=False,
+                annotations=True
+            )
+        return queryset
+
+    def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['profile'] = self.author
         return context
 
 
-class EditProfileUpdateView(
-    LoginRequiredMixin,
-    RedirectionProfileMixin,
-    UpdateView,
-):
-    """CBV страница редактирования профиля."""
+@login_required
+def add_comment(request, post_id):
+    comment = get_object_or_404(Post, pk=post_id)
+    form = CommentEditForm(request.POST)
+    if form.is_valid():
+        commentary = form.save(commit=False)
+        commentary.author = request.user
+        commentary.post = comment
+        commentary.save()
+    return redirect('blog:post_detail', post_id=post_id)
 
-    model = User
+
+class PostCreateView(LoginRequiredMixin, CreateView):
+    model = Post
+    form_class = PostEditForm
+    template_name = 'blog/create.html'
+
+    def get_success_url(self):
+        return reverse_lazy(
+            'blog:profile',
+            kwargs={'username': self.request.user}
+        )
+
+    def form_valid(self, form):
+        form.instance.author = self.request.user
+        return super().form_valid(form)
+
+
+class PostDetailView(DetailView):
+    model = Post
+    pk_url_kwarg = 'post_id'
+    template_name = 'blog/detail.html'
+    paginate_by = settings.MAX_POST_ON_PAGE
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['form'] = CommentEditForm(instance=self.object)
+        context['comments'] = (
+            self.object.comments.all().select_related('author')
+        )
+        return context
+
+    def get_object(self, queryset=None):
+        post = super().get_object(queryset=queryset)
+        if (
+            post.author != self.request.user
+            and (
+                not post.is_published
+                or not post.category.is_published
+                or post.pub_date > timezone.now()
+            )
+        ):
+            raise Http404()
+        return post
+
+
+class ProfiletUpdateView(LoginRequiredMixin, UpdateView):
+    form_class = UserEditForm
     template_name = 'blog/user.html'
-    fields = (
-        'username',
-        'first_name',
-        'last_name',
-        'email',
-    )
 
     def get_object(self, queryset=None):
         return self.request.user
 
+    def form_valid(self, form):
+        form.instance.author = self.request.user
+        return super().form_valid(form)
 
-class CommentMixin(RedirectionPostMixin):
-    """Миксин для комментариев."""
+    def get_success_url(self):
+        return reverse_lazy(
+            'blog:profile',
+            kwargs={'username': self.request.user.username})
 
+
+class CommonPostMixin:
+    model = Post
+    template_name = 'blog/create.html'
+    pk_url_kwarg = 'post_id'
+    form_class = PostEditForm
+    posts = None
+
+    def dispatch(self, request, *args, **kwargs):
+        post = get_object_or_404(Post, pk=kwargs.get('post_id'))
+        if post.author != request.user:
+            return redirect('blog:post_detail', self.kwargs.get('post_id'))
+        return super().dispatch(request, *args, **kwargs)
+
+
+class PostUpdateView(CommonPostMixin, LoginRequiredMixin, UpdateView):
+
+    def get_success_url(self):
+        return reverse_lazy('blog:post_detail',
+                            kwargs={'post_id': self.object.pk})
+
+
+class PostDeleteView(CommonPostMixin, LoginRequiredMixin, DeleteView):
+    success_url = reverse_lazy('blog:index')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['form'] = PostEditForm(instance=self.object)
+        return context
+
+
+class CommentMixin:
     model = Comment
+    form_class = CommentEditForm
     template_name = 'blog/comment.html'
     pk_url_kwarg = 'comment_id'
+    comment = None
 
-
-class CommentFormMixin(CommentMixin):
-    """Миксин для комментариев с формой."""
-
-    form_class = CommentForm
-
-
-class CommentCreateView(LoginRequiredMixin, CommentFormMixin, CreateView):
-    """CBV создания комментария"""
+    def dispatch(self, request, *args, **kwargs):
+        instance = get_object_or_404(
+            Comment, pk=kwargs.get(
+                'comment_id',
+                'post_id'
+            )
+        )
+        if instance.author != request.user:
+            return redirect('blog:post_detail', self.kwargs.get('post_id'))
+        return super().dispatch(request, *args, **kwargs)
 
     def form_valid(self, form):
         form.instance.author = self.request.user
-        form.instance.post = get_object_or_404(
-            get_general_posts_filter(),
-            pk=self.kwargs['post_id']
-        )
+        form.instance.comment = self.comment
         return super().form_valid(form)
 
+    def get_success_url(self):
+        return reverse_lazy('blog:post_detail',
+                            kwargs={'post_id': self.kwargs.get('post_id')})
 
-class CommentUpdateView(EditContentMixin, CommentFormMixin, UpdateView):
-    """CBV страница редактирования комментария."""
 
+class CommentUpdateView(LoginRequiredMixin, CommentMixin, UpdateView):
     pass
 
 
-class CommentDeleteView(EditContentMixin, CommentMixin, DeleteView):
-    """CBV страница удаления комментария."""
-
+class CommentDeleteView(LoginRequiredMixin, CommentMixin, DeleteView):
     pass
+
+
+class ProfileCreateView(CreateView):
+    form_class = UserEditForm
+    template_name = 'registration/registration_form.html'
+    success_url = reverse_lazy('login')

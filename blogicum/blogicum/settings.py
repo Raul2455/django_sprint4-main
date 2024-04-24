@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -8,18 +9,19 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/3.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-il@3%^is^@@*dxfpmdt(4c6y3igvc=o#@jpjee9t$@oxd-5z%8'
+SECRET_KEY = 'django-insecure-u@69$-1ypq27w07g(wz2w_s+4$robb-0on4x=7j###s!z+rsav'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = [
     'localhost',
     '127.0.0.1',
-    'www.cuberbug.pythonanywhere.com',
-    'cuberbug.pythonanywhere.com',
 ]
 
+INTERNAL_IPS = [
+    '127.0.0.1',
+]
 
 # Application definition
 
@@ -32,10 +34,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'django_bootstrap5',
-
-    # DjDT
     'debug_toolbar',
+    'django_bootstrap5',
 ]
 
 MIDDLEWARE = [
@@ -46,19 +46,10 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-
-    # DjDT
     'debug_toolbar.middleware.DebugToolbarMiddleware',
 ]
 
-# Настройка для DjDT.
-INTERNAL_IPS = [
-    '127.0.0.1',
-]
-
 ROOT_URLCONF = 'blogicum.urls'
-
-MEDIA_ROOT = BASE_DIR / 'media'
 
 TEMPLATES_DIR = BASE_DIR / 'templates'
 
@@ -131,20 +122,24 @@ USE_TZ = True
 STATIC_URL = '/static/'
 
 STATICFILES_DIRS = [
-    BASE_DIR / 'static',
+    BASE_DIR / 'static_dev',
 ]
-
-# Email servis
-EMAIL_BACKEND = 'django.core.mail.backends.filebased.EmailBackend'
-EMAIL_FILE_PATH = BASE_DIR / 'sent_emails'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+MEDIA_URL = '/media/'
+
+EMAIL_BACKEND = 'django.core.mail.backends.filebased.EmailBackend'
+EMAIL_FILE_PATH = BASE_DIR / 'sent_emails'
+
+CSRF_FAILURE_VIEW = 'pages.views.csrf_failure'
+
 LOGIN_REDIRECT_URL = 'blog:index'
 
 LOGIN_URL = 'login'
 
-CSRF_FAILURE_VIEW = 'pages.views.csrf_failure'
+MAX_POST_ON_PAGE = 10
