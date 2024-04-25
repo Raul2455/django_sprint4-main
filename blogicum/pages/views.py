@@ -15,6 +15,7 @@ def page_not_found(request, exception):
 
 
 def csrf_failure(request, reason=''):
+    # Assuming the template 'pages/403csrf.html' exists and is correct
     return render(request, 'pages/403csrf.html', status=403)
 
 
