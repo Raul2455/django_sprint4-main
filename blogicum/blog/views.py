@@ -12,7 +12,7 @@ from django.utils import timezone  # Добавляем импорт timezone
 from .forms import CommentEditForm, PostEditForm, UserEditForm
 from .mixins import CommonPostMixin, CommentMixin
 from .models import Category, Post, User
-from .query_utils import create_queryset
+from .query_utils import query_create_queryset
 
 
 class IndexListView(ListView):
@@ -21,7 +21,7 @@ class IndexListView(ListView):
     paginate_by = settings.MAX_POST_ON_PAGE
 
     def get_queryset(self):
-        return create_queryset()
+        return query_create_queryset()
 
 
 class CategoryListView(IndexListView):
@@ -34,7 +34,7 @@ class CategoryListView(IndexListView):
 
     def get_queryset(self):
         category = self.get_category()
-        return create_queryset(manager=category.posts)
+        return query_create_queryset(manager=category.posts)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -50,8 +50,8 @@ class ProfileListView(IndexListView):
 
     def get_queryset(self):
         author = self.get_author()
-        filters = True if self.request.user != author else False
-        return create_queryset(manager=author.posts, filters=filters)
+        filters = self.request.user != author
+        return query_create_queryset(manager=author.posts, filters=filters)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -99,13 +99,11 @@ class PostDetailView(DetailView):
         )
         return context
 
-    def get_queryset(self):
-        # Используем get_queryset родительского класса
-        return super().get_queryset()
-
     def get_object(self, queryset=None):
+        # Используем get_queryset родительского класса
+        queryset = super().get_queryset()
         # Получаем объект поста используя queryset из get_queryset
-        post = super().get_object(queryset=self.get_queryset())
+        post = super().get_object(queryset=queryset)
 
         # Проверяем условия видимости поста
         if (

@@ -24,15 +24,14 @@ class CommentMixin:
     form_class = CommentEditForm
     template_name = 'blog/comment.html'
     pk_url_kwarg = 'comment_id'
-    comment = None
 
     def dispatch(self, request, *args, **kwargs):
-        instance = get_object_or_404(
+        self.comment = get_object_or_404(
             Comment,
             pk=kwargs.get('comment_id'),
             post__id=kwargs.get('post_id')
         )
-        if instance.author != request.user:
+        if self.comment.author != request.user:
             return redirect('blog:post_detail', post_id=kwargs.get('post_id'))
         return super().dispatch(request, *args, **kwargs)
 
