@@ -2,7 +2,7 @@ from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
 
 from blog.models import Post, Comment
-from blogicum.blog.forms import CommentEditForm, PostEditForm
+from blog.forms import CommentEditForm, PostEditForm
 
 
 class CommonPostMixin:
@@ -14,7 +14,8 @@ class CommonPostMixin:
     def dispatch(self, request, *args, **kwargs):
         post = get_object_or_404(Post, pk=kwargs.get(self.pk_url_kwarg))
         if post.author != request.user:
-            return redirect('blog:post_detail', kwargs.get(self.pk_url_kwarg))
+            return redirect('blog:post_detail',
+                            post_id=kwargs.get(self.pk_url_kwarg))
         return super().dispatch(request, *args, **kwargs)
 
 
@@ -23,17 +24,20 @@ class CommentMixin:
     form_class = CommentEditForm
     template_name = 'blog/comment.html'
     pk_url_kwarg = 'comment_id'
+    comment = None
 
     def dispatch(self, request, *args, **kwargs):
         instance = get_object_or_404(
-            Comment, pk=kwargs.get(self.pk_url_kwarg),
+            Comment,
+            pk=kwargs.get('comment_id'),
             post__id=kwargs.get('post_id')
         )
         if instance.author != request.user:
-            return redirect('blog:post_detail', self.kwargs.get('post_id'))
+            return redirect('blog:post_detail', post_id=kwargs.get('post_id'))
         return super().dispatch(request, *args, **kwargs)
 
     def get_success_url(self):
         return reverse_lazy(
-            'blog:post_detail', kwargs={'post_id': self.kwargs.get('post_id')}
+            'blog:post_detail',
+            kwargs={'post_id': self.kwargs.get('post_id')}
         )
